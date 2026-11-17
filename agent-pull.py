@@ -34,6 +34,20 @@ def credentials():
     except OSError:
         return ""
 POLL_S = 0.3
+HISTORY = os.path.join(STATE, "history.jsonl")
+
+
+def publish(kind, text):
+    """input.txt / reply.txt / history.jsonl, so speechtext and speechreply work."""
+    if not text:
+        return
+    path = os.path.join(STATE, f"{kind}.txt")
+    with open(path + ".tmp", "w") as handle:
+        handle.write(text + "\n")
+    os.replace(path + ".tmp", path)
+    with open(HISTORY, "a") as handle:
+        handle.write(json.dumps({"ts": time.strftime("%Y-%m-%dT%H:%M:%S"), "kind": kind,
+                                 "text": text}) + "\n")
 
 
 def log(*a):
@@ -92,6 +106,8 @@ def main():
             for item in get_json("/pending").get("items", []):
                 with open(IN_LOG, "a") as handle:
                     handle.write(json.dumps(item) + "\n")
+                if item.get("text"):
+                    publish("input", item["text"])
                 log(f"-> agent: {'abort' if item.get('abort') else item.get('text', '')[:70]}")
         except Exception as error:  # noqa: BLE001 - the API host may be down
             log(f"pending failed: {error}")
@@ -112,6 +128,7 @@ def main():
                         continue  # a half-written line, the next poll gets it
                     if text:
                         post_json("/reply", {"text": text})
+                        publish("reply", text)
                         log(f"<- agent: {text[:70]}")
         except Exception as error:  # noqa: BLE001
             log(f"reply failed: {error}")
