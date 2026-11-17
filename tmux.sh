@@ -61,7 +61,7 @@ tmux set-option -t "$SESSION" remain-on-exit on
 tmux split-window -h -t "$SESSION:0" -c "$D" \
     "VOICE_API_URL='$API_URL' python3 -u '$D/agent-pull.py'"
 tmux split-window -v -t "$SESSION:0.1" -c "$D" \
-    "bash '$D/remote-pane.sh' '' '$API_URL/'"
+    "bash '$D/remote-pane.sh' '$API_URL' '$API_URL/'"
 tmux select-pane -t "$SESSION:0.0"
 [[ "${1:-}" == start ]] && { echo "started (tmux attach -t $SESSION)"; exit 0; }
 exec tmux attach -t "$SESSION"
