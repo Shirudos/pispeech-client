@@ -13,9 +13,23 @@ browser page (server)  ── audio ──►  whisper/piper (server)
 
 ## Install
 
+No remote, no `git clone` — copy the repo as it is, `.git` included, and keep the history:
+
 ```sh
-git clone <this repo> && cd pispeech-client
-./install.sh --api https://www.deliktas.de/voice --user voice --password '...'
+# from the machine that already has it
+scp -r pispeech-client other-host:ai/
+ssh other-host 'cd ~/ai/pispeech-client && ./install.sh \
+    --api https://www.deliktas.de/voice --user voice --password "..."'
+
+# or both in one go, non-interactive
+rsync -a --exclude sessions pispeech-client/ other-host:ai/pispeech-client/
+ssh other-host 'cd ~/ai/pispeech-client && ./install.sh --api ... --user voice --password ... && ./tmux.sh start'
+```
+
+`rsync` over `scp -r` for updates: it skips what is already there. The `.git` directory
+travels along, so `git log` and `git status` work on the new machine too.
+
+```sh
 ./tmux.sh                    # pi + bridge + status, then open the page
 ```
 
@@ -71,7 +85,18 @@ mangles names so it should try the obvious alternatives before giving up. Edit i
 
 ## Install on another machine (laptop)
 
-Exactly the same: `./install.sh` with the same API url and credentials, then `./tmux.sh`.
-The pi session lives on that machine, so the agent works with that machine's files while
-the speech models stay on the server. Nothing else has to match — only the URL and the
-password.
+Exactly the same: copy the repo, run `./install.sh` with the same API url and credentials,
+then `./tmux.sh`. The pi session lives on that machine, so the agent works with that
+machine's files while the speech models stay on the server. Nothing else has to match —
+only the URL and the password.
+
+Two things to know when several machines are set up:
+
+* **Only one machine may poll.** `GET /pending` drains the queue, so two running clients
+  split the transcripts between them. Stop the other one first (`./tmux.sh stop`).
+* `~/.local/bin` is often missing from a non-login ssh PATH. `tmux.sh` adds it for the
+  panes; for your own shell add `export PATH="$HOME/.local/bin:$PATH"`.
+
+Autostart on the login machine: put `~/ai/pispeech-client/tmux.sh start` in
+`~/.config/autostart/voice-agent.desktop` (`Exec=`) — everything then lives in the `voice`
+tmux session.
