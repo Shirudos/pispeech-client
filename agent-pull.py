@@ -12,8 +12,10 @@ So the page can live on any machine that can reach the API host, and the agent s
 
 import json
 import os
+import socket
 import sys
 import time
+import urllib.parse
 import urllib.request
 
 STATE = os.path.join(os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"), "voice")
@@ -21,6 +23,8 @@ IN_LOG = os.path.join(STATE, "agent-in.log")
 OUT_LOG = os.path.join(STATE, "agent-out.log")
 API = os.environ.get("VOICE_API_URL", "http://127.0.0.1:8088").rstrip("/")
 AUTH_FILE = os.path.join(os.path.expanduser("~/.config/voice/api-auth"))
+# several machines may run this at once; the API host hands each request to exactly one
+CLIENT = (os.environ.get("VOICE_CLIENT") or socket.gethostname() or "client").strip()[:40]
 
 
 def credentials():
@@ -80,7 +84,7 @@ def headers(extra=None):
 
 
 def get_json(path):
-    request = urllib.request.Request(API + path, headers=headers())
+    request = urllib.request.Request(API + path, headers=headers({"X-Client": CLIENT}))
     with OPENER.open(request, timeout=10) as response:
         return json.load(response)
 
@@ -88,7 +92,7 @@ def get_json(path):
 def post_json(path, payload):
     request = urllib.request.Request(
         API + path, data=json.dumps(payload).encode(),
-        headers=headers({"Content-Type": "application/json"}),
+        headers=headers({"Content-Type": "application/json", "X-Client": CLIENT}),
     )
     with OPENER.open(request, timeout=10) as response:
         return response.read()
@@ -99,12 +103,12 @@ def main():
     open(IN_LOG, "a").close()
     open(OUT_LOG, "a").close()
     offset = os.path.getsize(OUT_LOG)  # never replay old answers
-    log(f"agent bridge: {API} (pending -> {IN_LOG}, {OUT_LOG} -> reply)")
+    log(f"agent bridge {CLIENT!r}: {API} (pending -> {IN_LOG}, {OUT_LOG} -> reply)")
 
     backoff = POLL_S
     while True:
         try:
-            for item in get_json("/pending").get("items", []):
+            for item in get_json(f"/pending?client={urllib.parse.quote(CLIENT)}").get("items", []):
                 with open(IN_LOG, "a") as handle:
                     handle.write(json.dumps(item) + "\n")
                 if item.get("text"):

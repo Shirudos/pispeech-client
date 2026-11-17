@@ -77,6 +77,14 @@ tail -f ~/.local/state/voice/history.jsonl
 
 Only outbound HTTP from this machine: no tunnel, no open port, nothing to punch through NAT.
 
+## Documentation
+
+- `docs/GOALS.md` — use cases, what this side must and must not do, what "working" means.
+- `docs/AGENT-BRIDGE.md` — the three processes, the sentence-to-answer protocol, two
+  machines on one server, and a troubleshooting table.
+- The project-wide goals and the scheduling contract live in the server repo:
+  `pispeech-server/docs/GOALS.md` and `docs/ARCHITECTURE.md`.
+
 ## The agent's instructions
 
 `skills/voice-understanding/SKILL.md` is both the skill and the appended system prompt: how
@@ -91,12 +99,14 @@ then `./tmux.sh`. The pi session lives on that machine, so the agent works with 
 machine's files while the speech models stay on the server. Nothing else has to match —
 only the URL and the password.
 
-Two things to know when several machines are set up:
+Several machines may run at once — that is the point of the server's dispatcher: each
+sentence is handed to exactly one idle machine (exclusive lease, backpressure, answers
+broadcast to every open page). `GET /clients` on the server shows who is attached, and
+`VOICE_CLIENT=name` overrides the name (default: the hostname).
 
-* **Only one machine may poll.** `GET /pending` drains the queue, so two running clients
-  split the transcripts between them. Stop the other one first (`./tmux.sh stop`).
-* `~/.local/bin` is often missing from a non-login ssh PATH. `tmux.sh` adds it for the
-  panes; for your own shell add `export PATH="$HOME/.local/bin:$PATH"`.
+One thing to know on `ssh`: `~/.local/bin` is often missing from a non-login PATH, so `pi`
+and `speechtext` look absent. `tmux.sh` adds it for the panes; for your own shell add
+`export PATH="$HOME/.local/bin:$PATH"`.
 
 Autostart on the login machine: `./install.sh ... --autostart` writes
 `~/.config/autostart/voice-agent.desktop` for you (`Exec=tmux.sh start`); everything then
