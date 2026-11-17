@@ -26,8 +26,16 @@ rsync -a --exclude sessions pispeech-client/ other-host:ai/pispeech-client/
 ssh other-host 'cd ~/ai/pispeech-client && ./install.sh --api ... --user voice --password ... && ./tmux.sh start'
 ```
 
-`rsync` over `scp -r` for updates: it skips what is already there. The `.git` directory
-travels along, so `git log` and `git status` work on the new machine too.
+For an existing installation, copy the new version over the old one and run one command:
+
+```sh
+scp -r pispeech-client other-host:ai/     # or rsync -a ... (skips what is already there)
+ssh other-host 'cd ~/ai/pispeech-client && ./update.sh'
+```
+
+`update.sh` stops the session, reinstalls with the *stored* configuration (nothing is asked),
+starts it again and checks that this machine shows up in the server's client list. If updating
+ever needs more than that, the installer is wrong, not the operator.
 
 ```sh
 ./tmux.sh                    # pi + bridge + status, then open the page
