@@ -55,6 +55,8 @@ umask 022
 cat > "$CONFIG/client.env" <<ENV
 # read by tmux.sh
 VOICE_API_URL=$API_URL
+# the model the voice agent uses; the router default can abort mid-request
+VOICE_MODEL=${VOICE_MODEL:-deepseek/deepseek-flash}
 ENV
 chmod 600 "$CONFIG/api-auth"
 echo "  credentials stored in $CONFIG/api-auth (0600)"

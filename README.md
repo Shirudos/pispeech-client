@@ -26,7 +26,7 @@ The installer writes:
 | file | |
 |---|---|
 | `~/.config/voice/api-auth` | `user:password` for the Basic auth (0600) |
-| `~/.config/voice/client.env` | `VOICE_API_URL=...`, read by `tmux.sh` |
+| `~/.config/voice/client.env` | `VOICE_API_URL=...` and `VOICE_MODEL=...`, read by `tmux.sh` |
 | `~/.local/bin/speechtext` | print what the mic last heard |
 | `~/.local/bin/speechreply` | print the agent's last answer |
 

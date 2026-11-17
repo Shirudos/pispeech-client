@@ -19,6 +19,8 @@ AUTH_FILE="$CONFIG_DIR/api-auth"
 ENV_FILE="$CONFIG_DIR/client.env"
 [[ -r $ENV_FILE ]] && . "$ENV_FILE"
 API_URL=${VOICE_API_URL:-https://www.deliktas.de/voice}
+# a pinned model beats the router default: some default routes abort mid-request
+MODEL=${VOICE_MODEL:-deepseek/deepseek-flash}
 
 case "${1:-}" in
     stop)
@@ -46,7 +48,7 @@ fi
 
 < <(true) 2>/dev/null
 tmux new-session -d -s "$SESSION" -c "$D" -n voice \
-    "pi --session-id voice --session-dir '$D/sessions' \
+    "pi --session-id voice --session-dir '$D/sessions' --model '$MODEL' \
         --thinking off \
         --append-system-prompt '$D/skills/voice-understanding/SKILL.md' \
         --skill '$D/skills/voice-understanding' \
