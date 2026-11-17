@@ -40,8 +40,8 @@ Nothing here coordinates with the other machine; all coordination is server-side
 The consequences you can observe:
 
 - `GET /clients` on the server lists both, with `busy`/`idle` and how many requests each took.
-- Whichever machine is free takes the next sentence. A strict rotation would be worse: it
-  would idle a free machine while a sentence waits.
+- Machines take turns: whoever was served earlier gets the next sentence, provided the other
+  machine is polling right now. A machine that is alone is served immediately.
 - If a machine is closed mid-answer, its lease expires after two minutes and the sentence
   goes back to the pool.
 - The spoken answer is broadcast to every open page, so it does not matter which machine
