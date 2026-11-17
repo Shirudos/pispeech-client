@@ -28,7 +28,9 @@ have() { command -v "$1" >/dev/null 2>&1; }
 say "prerequisites"
 have python3 || { echo "python3 missing" >&2; exit 1; }
 have tmux    || { echo "tmux missing" >&2; exit 1; }
-have pi      || { echo "pi (the coding agent) is not on PATH" >&2; exit 1; }
+# pi often sits in ~/.local/bin, which a non-login ssh shell does not have in PATH
+PI=${VOICE_PI:-$(command -v pi || echo "$HOME/.local/bin/pi")}
+[[ -x $PI ]] || { echo "pi (the coding agent) not found - install it or set VOICE_PI" >&2; exit 1; }
 have curl    || { echo "curl missing" >&2; exit 1; }
 python3 - <<'PY' || exit 1
 import urllib.request, sys
@@ -57,6 +59,7 @@ cat > "$CONFIG/client.env" <<ENV
 VOICE_API_URL=$API_URL
 # the model the voice agent uses; the router default can abort mid-request
 VOICE_MODEL=${VOICE_MODEL:-deepseek/deepseek-flash}
+VOICE_PI=$PI
 ENV
 chmod 600 "$CONFIG/api-auth"
 echo "  credentials stored in $CONFIG/api-auth (0600)"

@@ -21,6 +21,8 @@ ENV_FILE="$CONFIG_DIR/client.env"
 API_URL=${VOICE_API_URL:-https://www.deliktas.de/voice}
 # a pinned model beats the router default: some default routes abort mid-request
 MODEL=${VOICE_MODEL:-deepseek/deepseek-flash}
+# ssh logins often lack ~/.local/bin in PATH, and pi usually lives there
+PI=${VOICE_PI:-$(command -v pi || echo "$HOME/.local/bin/pi")}
 
 case "${1:-}" in
     stop)
@@ -48,7 +50,7 @@ fi
 
 < <(true) 2>/dev/null
 tmux new-session -d -s "$SESSION" -c "$D" -n voice \
-    "pi --session-id voice --session-dir '$D/sessions' --model '$MODEL' \
+    "'$PI' --session-id voice --session-dir '$D/sessions' --model '$MODEL' \
         --thinking off \
         --append-system-prompt '$D/skills/voice-understanding/SKILL.md' \
         --skill '$D/skills/voice-understanding' \
