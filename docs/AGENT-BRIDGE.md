@@ -34,6 +34,18 @@ restart never replays old answers.
   the extension turns it into `ctx.abort()`, so speaking over an answer cancels the run
   instead of queueing behind it.
 
+## Which page talks to which machine
+
+The page you speak into is answered by the agent on the same machine (the server matches the
+browser's address to the address this bridge polls from), or by the machine picked in the
+page's *answered by* selector / `?target=<name>` on the URL. Consequences for this machine:
+
+- `VOICE_CLIENT` (default: the hostname) is the name the picker shows. Rename it if the
+  hostname is not what you want to see in the list.
+- A request aimed at another machine never arrives here; nothing to configure.
+- A request aimed at *this* machine waits until this machine is free instead of being sent
+  elsewhere — speak, then wait for the answer, do not expect the other machine to take over.
+
 ## Two machines, one server
 
 Nothing here coordinates with the other machine; all coordination is server-side leases.
