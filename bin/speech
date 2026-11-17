@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# speechtext / speechreply - what the voice agent last heard, and what it last said.
+#   speechtext              last transcript
+#   speechreply             last spoken answer
+#   speechtext -w           wait for the next one, print it, exit
+#   speechreply -f          follow, one line per new answer
+#   speechreply -c          copy to the clipboard
+set -uo pipefail
+STATE="${XDG_STATE_HOME:-$HOME/.local/state}/voice"
+HIST="$STATE/history.jsonl"
+mkdir -p "$STATE"
+
+case "${0##*/}" in
+    speechtext)  kind=input ;;
+    speechreply) kind=reply ;;
+    *)           kind="${1:-input}"; shift || true ;;
+esac
+
+action=last
+case "${1:-}" in
+    -w|--wait)   action=wait ;;
+    -f|--follow) action=follow ;;
+    -c|--copy)   action=copy ;;
+    "")          ;;
+    *)           echo "usage: ${0##*/} [-w|-f|-c]" >&2; exit 2 ;;
+esac
+
+lines() {  # one line per matching record, in order
+    [[ -f $HIST ]] || : >"$HIST"
+    tail -n0 -F "$HIST" 2>/dev/null \
+        | jq --unbuffered -r --arg k "$kind" 'select(.kind == $k).text' 2>/dev/null \
+        | grep --line-buffered -v '^$'
+}
+
+case $action in
+    last)   [[ -s $STATE/$kind.txt ]] && cat "$STATE/$kind.txt" || { echo "nothing ($kind) yet" >&2; exit 1; } ;;
+    wait)   lines | head -n1 ;;
+    follow) lines ;;
+    copy)   [[ -s $STATE/$kind.txt ]] || { echo "nothing ($kind) yet" >&2; exit 1; }
+            if command -v wl-copy >/dev/null; then wl-copy <"$STATE/$kind.txt"
+            elif command -v xclip >/dev/null; then xclip -selection clipboard <"$STATE/$kind.txt"
+            else echo "no wl-copy or xclip" >&2; exit 1; fi ;;
+esac
