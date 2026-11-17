@@ -30,6 +30,9 @@ restart never replays old answers.
   backoff (0.3 s → 30 s) instead of being skipped.
 - **Answered requests are removed, queued ones never are.** `dispatch.Pool.done()` removes
   exactly the request this machine answered.
+- **`{"abort": true}` is Ctrl+C.** It arrives like a transcript when the page hears "stop"
+  (or the ⏹ button is pressed) and the extension turns it into `ctx.abort()`. Nothing waits
+  afterwards: the next sentence is a new instruction, no "continue" and no resume phrase.
 - **The abort path is part of the protocol.** `{"abort": true}` arrives like a transcript and
   the extension turns it into `ctx.abort()`, so speaking over an answer cancels the run
   instead of queueing behind it.

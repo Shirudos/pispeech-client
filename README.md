@@ -55,7 +55,9 @@ The installer writes:
 └──────────────────────────┴────────────────┘
 ```
 
-Talk into the page the server serves. Your sentence is transcribed there, the transcript is
+Talk into the page the server serves. Spoken "stop" aborts the agent's run like Ctrl+C (the
+⏹ button does the same); "voice off" / "mic off" mute the speaker or the microphone; nothing
+ever waits for a resume keyword — the next sentence is the next instruction. Your sentence is transcribed there, the transcript is
 picked up by `agent-pull.py` and lands in the pi session like typed input; the answer is
 written back to the server and read out loud by the page.
 
