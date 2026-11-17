@@ -33,7 +33,8 @@ travels along, so `git log` and `git status` work on the new machine too.
 ./tmux.sh                    # pi + bridge + status, then open the page
 ```
 
-Requirements: `python3`, `tmux`, `pi`, `curl`. Nothing else — no GPU, no ffmpeg, no models.
+Requirements: `python3`, `tmux`, `pi`, `curl`. Nothing else — no GPU, no ffmpeg, no
+models, and no `jq` (the installer and `bin/speech` use python3 for JSON).
 
 The installer writes:
 
@@ -97,6 +98,6 @@ Two things to know when several machines are set up:
 * `~/.local/bin` is often missing from a non-login ssh PATH. `tmux.sh` adds it for the
   panes; for your own shell add `export PATH="$HOME/.local/bin:$PATH"`.
 
-Autostart on the login machine: put `~/ai/pispeech-client/tmux.sh start` in
-`~/.config/autostart/voice-agent.desktop` (`Exec=`) — everything then lives in the `voice`
-tmux session.
+Autostart on the login machine: `./install.sh ... --autostart` writes
+`~/.config/autostart/voice-agent.desktop` for you (`Exec=tmux.sh start`); everything then
+lives in the `voice` tmux session.

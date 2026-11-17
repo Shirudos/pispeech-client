@@ -50,7 +50,6 @@ if tmux has-session -t "$SESSION" 2>/dev/null; then
     exec tmux attach -t "$SESSION"
 fi
 
-< <(true) 2>/dev/null
 tmux new-session -d -s "$SESSION" -c "$D" -n voice \
     "'$PI' --session-id voice --session-dir '$D/sessions' --model '$MODEL' \
         --thinking off \

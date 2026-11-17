@@ -2,16 +2,20 @@
 # What the "API host" pane shows when whisper and piper run on the other machine.
 # A script, not an inline shell loop: tmux panes run through the login shell (fish here).
 API="${1:-http://127.0.0.1:8088}"
+AUTH_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/voice/api-auth"
 PAGE="${2:-}"
 while :; do
     clear
     printf '%s  api %s\n' "$(date '+%H:%M:%S')" "$API"
     [[ -n $PAGE ]] && printf 'page %s\n' "$PAGE"
     printf '\n' 
-    if curl -fsS -m 2 "$API/health"; then
+    auth=(); [[ -r $AUTH_FILE ]] && auth=(-u "$(cat "$AUTH_FILE")")
+    if curl -fsS -m 3 "${auth[@]}" "$API/health"; then
         printf '\n\n'
     else
-        printf 'API DOWN - run ./deploy.sh\n\n'
+        printf 'API DOWN or unauthorized\n'
+        printf '  start it on the server:  ./deploy/start.sh\n'
+        printf '  credentials:             %s\n\n' "$AUTH_FILE"
     fi
     sleep 5
 done

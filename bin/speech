@@ -25,11 +25,18 @@ case "${1:-}" in
     *)           echo "usage: ${0##*/} [-w|-f|-c]" >&2; exit 2 ;;
 esac
 
-lines() {  # one line per matching record, in order
+lines() {  # one line per matching record, in order (no jq: python3 is already a dependency)
     [[ -f $HIST ]] || : >"$HIST"
     tail -n0 -F "$HIST" 2>/dev/null \
-        | jq --unbuffered -r --arg k "$kind" 'select(.kind == $k).text' 2>/dev/null \
-        | grep --line-buffered -v '^$'
+        | python3 -u -c 'import json, sys
+k = sys.argv[1]
+for line in sys.stdin:
+    try:
+        record = json.loads(line)
+    except ValueError:
+        continue
+    if record.get("kind") == k and record.get("text"):
+        print(record["text"], flush=True)' "$kind"
 }
 
 case $action in

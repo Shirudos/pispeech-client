@@ -2,6 +2,7 @@
 # pispeech-client: the pi agent session that talks to a pispeech-server over the LAN.
 #
 #   ./install.sh --api https://www.deliktas.de/voice [--user voice] [--password ...]
+#               [--autostart]
 #   ./install.sh            asks for the API url and the credentials
 #
 # Installs: the speechtext/speechreply commands, ~/.config/voice/, and a tmux session that
@@ -12,13 +13,15 @@ HERE=$PWD
 CONFIG=${XDG_CONFIG_HOME:-$HOME/.config}/voice
 BINDIR=${VOICE_BIN_DIR:-$HOME/.local/bin}
 
-API_URL=""; USER_NAME=""; PASSWORD=""
+API_URL=""; USER_NAME=""; PASSWORD=""; AUTOSTART=0
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --api) API_URL=$2; shift 2 ;;
-        --user) USER_NAME=$2; shift 2 ;;
-        --password) PASSWORD=$2; shift 2 ;;
-        *) echo "unknown option: $1" >&2; exit 2 ;;
+        --api) API_URL=${2:?--api needs a url}; shift 2 ;;
+        --user) USER_NAME=${2:?--user needs a name}; shift 2 ;;
+        --password) PASSWORD=${2:?--password needs a value}; shift 2 ;;
+        --autostart) AUTOSTART=1; shift ;;
+        -h|--help) sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        *) echo "unknown option: $1 (see --help)" >&2; exit 2 ;;
     esac
 done
 
@@ -32,10 +35,8 @@ have tmux    || { echo "tmux missing" >&2; exit 1; }
 PI=${VOICE_PI:-$(command -v pi || echo "$HOME/.local/bin/pi")}
 [[ -x $PI ]] || { echo "pi (the coding agent) not found - install it or set VOICE_PI" >&2; exit 1; }
 have curl    || { echo "curl missing" >&2; exit 1; }
-python3 - <<'PY' || exit 1
-import urllib.request, sys
-print("  python urllib ok")
-PY
+python3 -c 'import urllib.request, json, ssl' \
+    || { echo "python3 lacks urllib/ssl - install the full python3 package" >&2; exit 1; }
 
 if [[ -z $API_URL ]]; then
     read -r -p "API base url [https://www.deliktas.de/voice]: " API_URL
@@ -50,7 +51,8 @@ if [[ -z $PASSWORD ]]; then
     read -r -s -p "password: " PASSWORD; echo
 fi
 
-mkdir -p "$CONFIG" "$BINDIR"
+STATE=${XDG_STATE_HOME:-$HOME/.local/state}/voice
+mkdir -p "$CONFIG" "$BINDIR" "$STATE"
 umask 077
 printf '%s:%s\n' "$USER_NAME" "$PASSWORD" > "$CONFIG/api-auth"
 umask 022
@@ -59,7 +61,7 @@ cat > "$CONFIG/client.env" <<ENV
 VOICE_API_URL=$API_URL
 # the model the voice agent uses; the router default can abort mid-request
 VOICE_MODEL=${VOICE_MODEL:-deepseek/deepseek-flash}
-VOICE_PI=$PI
+VOICE_PI="$PI"
 ENV
 chmod 600 "$CONFIG/api-auth"
 echo "  credentials stored in $CONFIG/api-auth (0600)"
@@ -79,6 +81,22 @@ if curl -fsS -m 6 -u "$(cat "$CONFIG/api-auth")" "$API_URL/health"; then
     echo
 else
     echo "  the API did not answer with those credentials - fix that before worrying about the rest"
+fi
+
+if (( AUTOSTART )); then
+    say "autostart"
+    DIR=$HOME/.config/autostart
+    mkdir -p "$DIR"
+    cat > "$DIR/voice-agent.desktop" <<DESKTOP
+[Desktop Entry]
+Type=Application
+Name=Voice agent
+Comment=pi + speech bridge in tmux
+Exec=$HERE/tmux.sh start
+Terminal=false
+X-GNOME-Autostart-enabled=true
+DESKTOP
+    echo "  $DIR/voice-agent.desktop"
 fi
 
 say "done"

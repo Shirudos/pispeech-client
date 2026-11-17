@@ -19,7 +19,7 @@ import urllib.request
 STATE = os.path.join(os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"), "voice")
 IN_LOG = os.path.join(STATE, "agent-in.log")
 OUT_LOG = os.path.join(STATE, "agent-out.log")
-API = os.environ.get("VOICE_API_URL", "https://192.168.101.135:8089").rstrip("/")
+API = os.environ.get("VOICE_API_URL", "http://127.0.0.1:8088").rstrip("/")
 AUTH_FILE = os.path.join(os.path.expanduser("~/.config/voice/api-auth"))
 
 
@@ -101,6 +101,7 @@ def main():
     offset = os.path.getsize(OUT_LOG)  # never replay old answers
     log(f"agent bridge: {API} (pending -> {IN_LOG}, {OUT_LOG} -> reply)")
 
+    backoff = POLL_S
     while True:
         try:
             for item in get_json("/pending").get("items", []):
@@ -109,8 +110,12 @@ def main():
                 if item.get("text"):
                     publish("input", item["text"])
                 log(f"-> agent: {'abort' if item.get('abort') else item.get('text', '')[:70]}")
+            backoff = POLL_S
         except Exception as error:  # noqa: BLE001 - the API host may be down
-            log(f"pending failed: {error}")
+            log(f"pending failed ({error}), retrying in {backoff:.0f}s")
+            time.sleep(backoff)
+            backoff = min(backoff * 2, 30)
+            continue
 
         try:
             size = os.path.getsize(OUT_LOG)
@@ -120,18 +125,29 @@ def main():
                 with open(OUT_LOG) as handle:
                     handle.seek(offset)
                     data = handle.read()
-                offset = size
-                for line in data.splitlines():
+                # Move past a line only once it has been delivered, so a failed POST
+                # retries the answer instead of dropping it.
+                consumed = 0
+                for line in data.splitlines(keepends=True):
+                    if not line.endswith("\n"):
+                        break  # still being written, the next poll gets it
                     try:
                         text = json.loads(line).get("text")
                     except json.JSONDecodeError:
-                        continue  # a half-written line, the next poll gets it
+                        consumed += len(line.encode())  # not ours, forget it
+                        continue
                     if text:
                         post_json("/reply", {"text": text})
                         publish("reply", text)
                         log(f"<- agent: {text[:70]}")
+                    consumed += len(line.encode())
+                offset += consumed
+            backoff = POLL_S
         except Exception as error:  # noqa: BLE001
-            log(f"reply failed: {error}")
+            log(f"reply failed ({error}), retrying in {backoff:.0f}s")
+            time.sleep(backoff)
+            backoff = min(backoff * 2, 30)
+            continue
 
         time.sleep(POLL_S)
 
