@@ -12,6 +12,8 @@
 #   ./tmux.sh stop     kill the session
 #   ./tmux.sh status   panes + API health
 set -uo pipefail
+# speechtext/speechreply live in ~/.local/bin, which a non-login ssh shell does not have
+export PATH="$HOME/.local/bin:$PATH"
 D=$(cd "$(dirname "$0")" && pwd)
 SESSION=${VOICE_SESSION:-voice}
 CONFIG_DIR=${XDG_CONFIG_HOME:-$HOME/.config}/voice

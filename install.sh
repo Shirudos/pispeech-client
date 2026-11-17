@@ -69,7 +69,9 @@ ln -sfn "$HERE/bin/speech" "$BINDIR/speechtext"
 ln -sfn "$HERE/bin/speech" "$BINDIR/speechreply"
 case ":$PATH:" in
     *":$BINDIR:"*) ;;
-    *) echo "  note: $BINDIR is not on PATH" ;;
+    *) echo "  note: $BINDIR is not on PATH, so speechtext will not be found there."
+       echo "        add to ~/.bashrc or ~/.config/fish/config.fish:"
+       echo '          export PATH="$HOME/.local/bin:$PATH"' ;;
 esac
 
 say "checking the server"
