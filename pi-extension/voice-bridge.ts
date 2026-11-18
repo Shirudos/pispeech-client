@@ -1,9 +1,11 @@
 // Voice bridge: lets agent-pull.py talk to this interactive Pi session, in both directions.
 //
 //   state/agent-in.log   {"id","text"} or {"id","abort":true} - injected here as your input
-//   state/agent-out.log  what this session says: {"text"} per finished sentence,
-//                        {"ack": id} once a request is in, {"final": true, ...} per run
-//   state/bridge.alive   touched every 0.3 s: agent-pull only takes work while it is fresh
+//   state/agent-out.log  what this session says: {"text"} per finished sentence (spoken),
+//                        {"screen"} per fenced code block (shown, never spoken),
+//                        {"activity"} per tool started, {"ack": id} once a request is in,
+//                        {"final": true, ...} per run
+//   state/bridge.alive   touched every second: agent-pull only takes work while it is fresh
 //
 // Neither side needs a socket, a server or a second Pi process: append-only files.
 // VOICE_PROMPT names the voice instructions; they are read again before every run, so an
@@ -16,7 +18,29 @@ const IN = join(STATE, "agent-in.log");
 const OUT = join(STATE, "agent-out.log");
 const ALIVE = join(STATE, "bridge.alive");
 const PROMPT = process.env.VOICE_PROMPT || "";
-const POLL_MS = 300;
+const POLL_MS = 100; // the delay between a request arriving and pi having it
+const ALIVE_MS = 1000;
+
+// Fenced blocks are for the screen. A sentence is never cut inside one, and while a fence is
+// still open nothing after its start is cut at all: its "." are not ends of sentences.
+const fenced = (text: string) => {
+  let masked = "", open = -1;
+  const parts = text.split("```");
+  parts.forEach((part, i) => {
+    const inside = i % 2 === 1;
+    if (inside && i === parts.length - 1) open = masked.length; // unclosed: everything after waits
+    masked += (i ? "```" : "") + (inside ? "x".repeat(part.length) : part);
+  });
+  return { masked, limit: open < 0 ? text.length : open };
+};
+
+// One finished piece of the answer -> spoken prose and shown blocks, in order.
+const pieces = (chunk: string) =>
+  chunk.split("```").flatMap((part, i) => {
+    if (i % 2 === 1) return part.trim() ? [{ screen: part.replace(/^[\w+-]*\n/, "").trimEnd() }] : [];
+    const prose = part.replace(/\s+/g, " ").trim();
+    return prose ? [{ text: prose }] : [];
+  });
 
 const textOf = (message: any) =>
   (message?.content || [])
@@ -33,11 +57,15 @@ export default function (pi: any) {
   const delivered = new Set<number | string>(); // request ids already handed to pi
   const out = (record: object) => appendFileSync(OUT, JSON.stringify(record) + "\n");
 
+  let alive = 0;
   const drain = () => {
-    try {
-      writeFileSync(ALIVE, String(Date.now()));
-    } catch {
-      // the state dir vanished: the next tick recreates nothing, agent-pull sees pi as gone
+    if (Date.now() - alive >= ALIVE_MS) {
+      try {
+        writeFileSync(ALIVE, String(Date.now()));
+        alive = Date.now();
+      } catch {
+        // the state dir vanished: agent-pull sees pi as gone, which is the truth
+      }
     }
     if (!existsSync(IN)) return;
     const size = statSync(IN).size;
@@ -116,11 +144,15 @@ export default function (pi: any) {
     if (event.message?.role !== "assistant") return;
     const text = textOf(event.message);
     if (!text || text === streamed) return;
-    const cut = Math.max(text.lastIndexOf(". "), text.lastIndexOf("! "), text.lastIndexOf("? "));
+    const { masked, limit } = fenced(text);
+    const settled = masked.slice(0, limit);
+    const fenceEnd = settled.lastIndexOf("```\n"); // a closed block ends a piece too
+    const cut = Math.max(settled.lastIndexOf(". "), settled.lastIndexOf("! "), settled.lastIndexOf("? "),
+      settled.lastIndexOf(".\n"), fenceEnd < 0 ? -1 : fenceEnd + 2);
     if (cut < streamed.length) return; // no complete sentence yet
-    const fresh = text.slice(streamed.length, cut + 1).trim();
+    const fresh = text.slice(streamed.length, cut + 1);
     streamed = text.slice(0, cut + 1);
-    if (fresh) out({ text: fresh });
+    for (const piece of pieces(fresh)) out(piece);
   });
 
   pi.on("message_end", async (event: any, c: any) => {
@@ -130,9 +162,15 @@ export default function (pi: any) {
     lastStop = message.stopReason || "";
     // joined exactly like the streaming branch above, or the "rest" slice would be
     // computed against a different string and repeat or drop text
-    const rest = textOf(message).slice(streamed.length).replace(/^\s+/, "").trim();
+    const rest = textOf(message).slice(streamed.length);
     streamed = "";
-    if (rest) out({ text: rest });
+    for (const piece of pieces(rest)) out(piece);
+  });
+
+  // What it is doing while it says nothing: shown on the page as "working: bash", never spoken.
+  pi.on("tool_execution_start", async (event: any, c: any) => {
+    ctx = c;
+    if (!event.parentToolCallId) out({ activity: event.toolName });
   });
 
   // The run is over and pi will not continue on its own: the server may hand this machine

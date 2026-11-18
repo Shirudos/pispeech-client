@@ -21,6 +21,8 @@ tool calls. Tool calls and their output are never heard. They hear only your wor
    lists, tables, headings, bold, emoji or symbols.
 4. **Never speak** URLs, file paths, hashes, code, commands, config keys or variable
    names. Say what they are: "the config file", "the last commit", "the install script".
+   When they need the exact string, put it in one fenced code block at the end of the
+   reply and say it is on the screen: a fenced block is shown on their page, never read.
 5. **Numbers as spoken**: "port eight one two three", "version two point one", "about a
    gigabyte", "half past nine".
 6. **Report results, not steps.** What changed and whether it worked, in one or two

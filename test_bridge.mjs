@@ -65,6 +65,22 @@ check(finals.length === 1 && finals[0].error === true && finals[0].aborted === f
 await handlers.agent_settled({ aborted: true }, ctx);
 check(records().filter((r) => r.final).pop().aborted === true, "an aborted run did not say so");
 
+// fenced blocks are shown, never spoken, and never cut in the middle; an open fence waits
+const before = records().length;
+await handlers.message_start(msg(""), ctx);
+await handlers.message_update(msg("Here is the command. ```bash\ncurl http://x.y/a. b"), ctx);
+await handlers.message_end(msg("Here is the command. ```bash\ncurl http://x.y/a. b\n```\nRun it once."), ctx);
+const fresh = records().slice(before);
+check(JSON.stringify(fresh) === JSON.stringify([
+  { text: "Here is the command." }, { screen: "curl http://x.y/a. b" }, { text: "Run it once." }]),
+  `fenced answer became ${JSON.stringify(fresh)}`);
+
+// what pi is doing while it is silent: one line per tool started, none for nested calls
+const quiet = records().length;
+await handlers.tool_execution_start({ toolName: "bash", toolCallId: "1" }, ctx);
+await handlers.tool_execution_start({ toolName: "read", toolCallId: "2", parentToolCallId: "1" }, ctx);
+check(JSON.stringify(records().slice(quiet)) === JSON.stringify([{ activity: "bash" }]), "activity lines wrong");
+
 // the voice prompt is a section of the system prompt, read again for every run
 const event = { systemPromptOptions: { sections: {} }, systemPrompt: "base" };
 await handlers.before_agent_start(event, ctx);
