@@ -117,9 +117,9 @@ machine's files while the speech models stay on the server. Nothing else has to 
 only the URL and the password.
 
 Several machines may run at once — that is the point of the server's dispatcher: each
-sentence is handed to exactly one idle machine (exclusive lease, backpressure, answers
-broadcast to every open page). `GET /clients` on the server shows who is attached, and
-`VOICE_CLIENT=name` overrides the name (default: the hostname).
+sentence is handed to exactly one machine, a page stays with the machine that answered it,
+and each answer is spoken by the page that asked. `GET /clients` on the server shows who is
+attached, and `VOICE_CLIENT=name` overrides the name (default: the hostname).
 
 One thing to know on `ssh`: `~/.local/bin` is often missing from a non-login PATH, so `pi`
 and `speechtext` look absent. `tmux.sh` adds it for the panes; for your own shell add
@@ -128,3 +128,30 @@ and `speechtext` look absent. `tmux.sh` adds it for the panes; for your own shel
 Autostart on the login machine: `./install.sh ... --autostart` writes
 `~/.config/autostart/voice-agent.desktop` for you (`Exec=tmux.sh start`); everything then
 lives in the `voice` tmux session.
+
+## An agent for the phone (on the server itself)
+
+A phone has no agent of its own, so one runs on the server: the same repo, installed there,
+talking to `serve.py` directly (no apache, no password on localhost):
+
+```sh
+rsync -a --exclude sessions pispeech-client/ server:ai/pispeech-client/
+ssh server 'cd ~/ai/pispeech-client && ./install.sh --api http://127.0.0.1:8088 \
+    --user local --password local && ./tmux.sh start'
+```
+
+It shows up as the server's hostname (`adelicious`) in `/clients` and in the page's
+*answered by* selector. On the phone, pick it once there, or bookmark
+`https://<server>/voice/?target=adelicious`. The pick matters: through the router every
+device on the home network looks like the same address, so the phone would otherwise be
+matched to the desktop. The server's pi uses the model provider configured in the server's
+own `~/.pi/agent`; it works on the server's files, and on other machines only through the
+ssh keys that already exist there.
+
+A headless server has no desktop autostart. To survive a reboot, add to the server's
+`crontab -e` (adjust the pi node path to the one in `~/.local/share/pi-node/`):
+
+```
+@reboot sleep 30 && $HOME/ai/pispeech-server/deploy/start.sh >> $HOME/.local/state/voice-server/boot.log 2>&1
+@reboot sleep 60 && PATH=$HOME/.local/share/pi-node/node-v22.22.3-linux-x64/bin:$HOME/.local/bin:/usr/bin:/bin $HOME/ai/pispeech-client/tmux.sh start >> $HOME/.local/state/voice/boot.log 2>&1
+```
