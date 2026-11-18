@@ -31,10 +31,17 @@ password=${credentials#*:}
 [[ -n $user && -n $password ]] || die "$AUTH_FILE is not user:password"
 
 say "tests"
-if command -v node >/dev/null; then
-    node test_bridge.mjs || die "the bridge test failed, nothing was changed"
+# the test imports the TypeScript extension directly: it needs a node that strips types
+# (22.18+); a distribution node may be older than the one pi brings along
+NODE=""
+for candidate in "$(command -v node)" "$HOME"/.local/share/pi-node/node-*/bin/node; do
+    [[ -x $candidate ]] && "$candidate" -e 'process.exit(process.features.typescript ? 0 : 1)' 2>/dev/null \
+        && { NODE=$candidate; break; }
+done
+if [[ -n $NODE ]]; then
+    "$NODE" test_bridge.mjs || die "the bridge test failed, nothing was changed"
 else
-    echo "  node not on PATH: skipping the bridge test"
+    echo "  no node with TypeScript support (22.18+): skipping the bridge test"
 fi
 
 say "stop"
