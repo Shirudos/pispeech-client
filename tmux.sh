@@ -50,12 +50,17 @@ if tmux has-session -t "$SESSION" 2>/dev/null; then
     exec tmux attach -t "$SESSION"
 fi
 
+# The voice session is its own agent: none of the user's coding setup (extensions, skills,
+# prompt templates, MCP) - those told it to end answers with a "skipped / risk" footer that
+# was then read out loud. The bridge adds the voice prompt as a section of the system prompt,
+# read again before every run, so editing SKILL.md applies to the next turn. Any
+# --append-system-prompt replaces ~/.pi/agent/APPEND_SYSTEM.md; this one only says where pi runs.
 tmux new-session -d -s "$SESSION" -c "$D" -n voice \
-    "'$PI' --session-id voice --session-dir '$D/sessions' --model '$MODEL' \
-        --thinking off \
-        --append-system-prompt '$D/skills/voice-understanding/SKILL.md' \
-        --skill '$D/skills/voice-understanding' \
-        -e '$D/pi-extension/voice-bridge.ts'"
+    "env VOICE_PROMPT='$D/skills/voice-understanding/SKILL.md' '$PI' \
+        --session-id voice --session-dir '$D/sessions' --model '$MODEL' --thinking off \
+        --no-extensions --no-skills --no-prompt-templates \
+        -e '$D/pi-extension/voice-bridge.ts' \
+        --append-system-prompt 'This machine: $(hostname). Your working directory is on it.'"
 tmux set-option -t "$SESSION" remain-on-exit on
 
 tmux split-window -h -t "$SESSION:0" -c "$D" \

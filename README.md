@@ -81,11 +81,13 @@ tail -f ~/.local/state/voice/history.jsonl
 
 | direction | file | who writes |
 |---|---|---|
-| server → agent | `GET /pending` (polled every 0.3 s) | `agent-pull.py` appends to `agent-in.log` |
-| agent → server | `POST /reply` | `agent-pull.py` tails `agent-out.log` |
+| server → agent | `GET /pending?wait=20` (long-poll, only while pi's heartbeat is fresh) | `agent-pull.py` appends to `agent-in.log` |
+| agent → server | `POST /reply`: each sentence, `{"ack": id}`, `{"final": true}` per run | `agent-pull.py` tails `agent-out.log` |
 | agent ↔ session | `agent-in.log` / `agent-out.log` | the pi extension `pi-extension/voice-bridge.ts` |
 
 Only outbound HTTP from this machine: no tunnel, no open port, nothing to punch through NAT.
+TLS certificates are verified; `VOICE_INSECURE_TLS=1` turns that off for a LAN server with a
+self-signed certificate (never for a public host: the password travels in those requests).
 
 ## Documentation
 
@@ -97,10 +99,15 @@ Only outbound HTTP from this machine: no tunnel, no open port, nothing to punch 
 
 ## The agent's instructions
 
-`skills/voice-understanding/SKILL.md` is both the skill and the appended system prompt: how
-to answer when the words are spoken, how short, no URLs or code, and that speech-to-text
-mangles names so it should try the obvious alternatives before giving up. Edit it, then
-`/reload` inside the pi pane (or restart the session).
+`skills/voice-understanding/SKILL.md` is the voice session's system prompt: how to answer
+when every word is spoken, how short, no URLs or code, what "stop" and "weiter" do, to check
+facts with a tool instead of guessing, and that speech-to-text mangles names so it should try
+the obvious alternatives before giving up. The bridge reads it again before every run, so an
+edit applies to the next thing you say: no `/reload`, no restart.
+
+The voice session loads none of your coding setup (`--no-extensions --no-skills
+--no-prompt-templates`): no MCP servers, no subagents, no ponytail footer read out loud. If you
+want one tool back, add exactly that one with `-e` in `tmux.sh`, not discovery.
 
 ## Install on another machine (laptop)
 
