@@ -30,6 +30,11 @@ restart never replays old answers.
   backoff (0.3 s → 30 s) instead of being skipped.
 - **Answered requests are removed, queued ones never are.** `dispatch.Pool.done()` removes
   exactly the request this machine answered.
+- **`{"abort": true}` is Ctrl+C and is never answered.** The agent has nothing to reply to an
+  abort, so the bridge posts no `/reply` for it and the server does not lease it — otherwise
+  that machine would count as busy and the next sentence would wait or go elsewhere.
+- **"weiter" / "continue" arrives as the word `continue`.** That is the only way to resume
+  after an abort: the run is gone, so the agent has to be asked to carry on.
 - **`{"abort": true}` is Ctrl+C.** It arrives like a transcript when the page hears "stop"
   (or the ⏹ button is pressed) and the extension turns it into `ctx.abort()`. Nothing waits
   afterwards: the next sentence is a new instruction, no "continue" and no resume phrase.
