@@ -75,10 +75,12 @@ export default function (pi: any) {
     ctx = c;
     const message = event.message;
     if (message?.role !== "assistant") return;
+    // joined exactly like the streaming branch above, or the "rest" slice would be
+    // computed against a different string and repeat or drop text
     const text = (message.content || [])
       .filter((block: any) => block.type === "text")
       .map((block: any) => block.text)
-      .join(" ");
+      .join("");
     const rest = text.slice(streamed.length).replace(/^\s+/, "").trim();
     streamed = "";
     if (rest) appendFileSync(OUT, JSON.stringify({ text: rest }) + "\n");
