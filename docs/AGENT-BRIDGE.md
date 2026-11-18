@@ -24,7 +24,7 @@ restart never replays old answers.
 ## Rules the bridge follows
 
 - **Outbound only.** No listener, no tunnel. The server never connects to this machine.
-- **Work only while pi runs.** The extension touches `bridge.alive` every 0.3 s; `agent-pull.py`
+- **Work only while pi runs.** The extension touches `bridge.alive` every second; `agent-pull.py`
   takes no work while that heartbeat is older than 5 s, so a request is never leased to a
   machine whose agent cannot read it (pi restarting, crashed, not started yet).
 - **One answer at a time, steering any time.** A machine holds one request until pi's run
@@ -61,10 +61,11 @@ The consequences you can observe:
 - `GET /clients` on the server lists both, with `busy`/`idle` and how many requests each took.
 - Machines take turns: whoever was served earlier gets the next sentence, provided the other
   machine is polling right now. A machine that is alone is served immediately.
-- If a machine is closed mid-answer, its lease expires after two minutes and the sentence
-  goes back to the pool.
-- The spoken answer is broadcast to every open page, so it does not matter which machine
-  produced it.
+- If a machine is closed mid-answer, it stops polling; two minutes later the sentence goes
+  back to the pool, unless pi had already acknowledged it (then it is never repeated).
+- A page stays with the machine that answered it, and its next words reach that machine
+  even while it works: they arrive in pi as steering, not as a new queue entry.
+- The spoken answer goes to the page that asked, not to every open page.
 
 ## Troubleshooting, in the order that finds the answer fastest
 

@@ -16,7 +16,7 @@ changes when the *client* is the thing you are looking at.
    the laptop's `pi`, the same URL and password. Nothing else has to be installed twice.
 3. **Both at once.** Desktop and laptop attached simultaneously; each sentence goes to
    exactly one of them (the server decides, see `pispeech-server/docs/ARCHITECTURE.md` →
-   *Who gets which request*). Answers are spoken by whichever page is open.
+   *Who gets which request*). Each answer is spoken by the page that asked.
 4. **Dictation.** `speechtext` in any shell, or `speechtext -w` from a script: the next
    sentence as a line on stdout, no editor plugin needed.
 5. **The agent reads its own answers back.** `speechreply` prints what was just spoken, so a
