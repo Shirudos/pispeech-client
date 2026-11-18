@@ -11,10 +11,10 @@ pane 2  remote-pane.sh  health of the API every 5 s (with the Basic auth)
 | step | where | file |
 |---|---|---|
 | the page ends a sentence and posts it | server | `serve.py` → `dispatch.py` |
-| the bridge leases it | client | `agent-pull.py` (`GET /pending?client=<hostname>`) |
-| the agent sees it as input | client | `agent-in.log` → `pi-extension/voice-bridge.ts` → `ctx.sendMessage`-style injection |
-| the agent answers | client | the extension appends to `agent-out.log` |
-| the bridge delivers it | client + server | `POST /reply` → `/replies` → the page speaks |
+| the bridge leases it | client | `agent-pull.py` (`GET /pending?client=<hostname>&wait=20`, a long-poll) |
+| the agent sees it as input | client | `agent-in.log` → `pi-extension/voice-bridge.ts` → `pi.sendUserMessage("[voice] …", {deliverAs: "steer"})` |
+| the agent answers | client | the extension appends `{"ack"}`, each sentence, and `{"final"}` to `agent-out.log` |
+| the bridge delivers it | client + server | `POST /reply` → that page's `/replies` → the page speaks |
 | dictation history | client | `input.txt`, `reply.txt`, `history.jsonl` |
 
 Both logs live in `~/.local/state/voice/`. They are append-only text: a stuck bridge can be
@@ -24,23 +24,22 @@ restart never replays old answers.
 ## Rules the bridge follows
 
 - **Outbound only.** No listener, no tunnel. The server never connects to this machine.
-- **One request at a time.** It asks for the next request only after delivering the previous
-  answer — that is what makes a second machine useful instead of a race.
+- **Work only while pi runs.** The extension touches `bridge.alive` every 0.3 s; `agent-pull.py`
+  takes no work while that heartbeat is older than 5 s, so a request is never leased to a
+  machine whose agent cannot read it (pi restarting, crashed, not started yet).
+- **One answer at a time, steering any time.** A machine holds one request until pi's run
+  settles (`{"final": true}` from `agent_settled`). Meanwhile, more words from the page it is
+  answering still arrive at once and reach pi as steering for the running turn.
+- **Never twice.** Every request has an id; the extension delivers each id once and answers
+  `{"ack": id}`. The server never hands out an acknowledged request again.
 - **Nothing is dropped.** A `POST /reply` that fails keeps its offset and is retried with
   backoff (0.3 s → 30 s) instead of being skipped.
-- **Answered requests are removed, queued ones never are.** `dispatch.Pool.done()` removes
-  exactly the request this machine answered.
-- **`{"abort": true}` is Ctrl+C and is never answered.** The agent has nothing to reply to an
-  abort, so the bridge posts no `/reply` for it and the server does not lease it — otherwise
-  that machine would count as busy and the next sentence would wait or go elsewhere.
+- **`{"abort": true}` is Ctrl+C and is never answered.** The page sends it for "stop" and the
+  ⏹ button; the extension calls `ctx.abort()`, the run settles as aborted, and the machine is
+  free for the next sentence. Talking over an answer is *not* an abort: it silences the page
+  and steers the agent, so work in progress survives.
 - **"weiter" / "continue" arrives as the word `continue`.** That is the only way to resume
   after an abort: the run is gone, so the agent has to be asked to carry on.
-- **`{"abort": true}` is Ctrl+C.** It arrives like a transcript when the page hears "stop"
-  (or the ⏹ button is pressed) and the extension turns it into `ctx.abort()`. Nothing waits
-  afterwards: the next sentence is a new instruction, no "continue" and no resume phrase.
-- **The abort path is part of the protocol.** `{"abort": true}` arrives like a transcript and
-  the extension turns it into `ctx.abort()`, so speaking over an answer cancels the run
-  instead of queueing behind it.
 
 ## Which page talks to which machine
 

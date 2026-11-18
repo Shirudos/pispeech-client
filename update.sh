@@ -30,6 +30,13 @@ user=${credentials%%:*}
 password=${credentials#*:}
 [[ -n $user && -n $password ]] || die "$AUTH_FILE is not user:password"
 
+say "tests"
+if command -v node >/dev/null; then
+    node test_bridge.mjs || die "the bridge test failed, nothing was changed"
+else
+    echo "  node not on PATH: skipping the bridge test"
+fi
+
 say "stop"
 ./tmux.sh stop
 
