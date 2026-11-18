@@ -13,7 +13,12 @@ HERE=$PWD
 CONFIG=${XDG_CONFIG_HOME:-$HOME/.config}/voice
 BINDIR=${VOICE_BIN_DIR:-$HOME/.local/bin}
 
-API_URL=""; USER_NAME=""; PASSWORD=""; AUTOSTART=0
+# keep what a previous install configured: re-running must never silently change the url,
+# the model or the session name (a second installation on the same machine shares nothing)
+ENV_FILE="$CONFIG/client.env"
+[[ -r $ENV_FILE ]] && . "$ENV_FILE"
+
+API_URL=${VOICE_API_URL:-""}; USER_NAME=""; PASSWORD=""; AUTOSTART=0
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --api) API_URL=${2:?--api needs a url}; shift 2 ;;
@@ -39,8 +44,8 @@ python3 -c 'import urllib.request, json, ssl' \
     || { echo "python3 lacks urllib/ssl - install the full python3 package" >&2; exit 1; }
 
 if [[ -z $API_URL ]]; then
-    read -r -p "API base url [https://www.deliktas.de/voice]: " API_URL
-    API_URL=${API_URL:-https://www.deliktas.de/voice}
+    read -r -p "API base url: " API_URL
+    API_URL=${API_URL:-http://127.0.0.1:8088}
 fi
 API_URL=${API_URL%/}
 
@@ -61,6 +66,8 @@ cat > "$CONFIG/client.env" <<ENV
 VOICE_API_URL=$API_URL
 # the model the voice agent uses; the router default can abort mid-request
 VOICE_MODEL=${VOICE_MODEL:-deepseek/deepseek-flash}
+# the tmux session name: two installations on one machine must not share it
+VOICE_SESSION=${VOICE_SESSION:-voice}
 VOICE_PI="$PI"
 ENV
 chmod 600 "$CONFIG/api-auth"
@@ -73,7 +80,7 @@ case ":$PATH:" in
     *":$BINDIR:"*) ;;
     *) echo "  note: $BINDIR is not on PATH, so speechtext will not be found there."
        echo "        add to ~/.bashrc or ~/.config/fish/config.fish:"
-       echo '          export PATH="$HOME/.local/bin:$PATH"' ;;
+       echo "          export PATH=\"$BINDIR:\$PATH\"" ;;
 esac
 
 say "checking the server"

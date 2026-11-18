@@ -15,11 +15,11 @@ set -uo pipefail
 # speechtext/speechreply live in ~/.local/bin, which a non-login ssh shell does not have
 export PATH="$HOME/.local/bin:$PATH"
 D=$(cd "$(dirname "$0")" && pwd)
-SESSION=${VOICE_SESSION:-voice}
 CONFIG_DIR=${XDG_CONFIG_HOME:-$HOME/.config}/voice
 AUTH_FILE="$CONFIG_DIR/api-auth"
 ENV_FILE="$CONFIG_DIR/client.env"
-[[ -r $ENV_FILE ]] && . "$ENV_FILE"
+[[ -r $ENV_FILE ]] && . "$ENV_FILE"   # before the defaults below: the file is the config
+SESSION=${VOICE_SESSION:-voice}
 API_URL=${VOICE_API_URL:-https://www.deliktas.de/voice}
 # a pinned model beats the router default: some default routes abort mid-request
 MODEL=${VOICE_MODEL:-deepseek/deepseek-flash}
