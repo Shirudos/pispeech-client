@@ -13,6 +13,12 @@ HERE=$PWD
 CONFIG=${XDG_CONFIG_HOME:-$HOME/.config}/voice
 BINDIR=${VOICE_BIN_DIR:-$HOME/.local/bin}
 
+# Android/Termux (GrapheneOS phone, tablet): aarch64, no root, packages through `pkg`,
+# no systemd, and the app is killed by Doze unless a wake-lock is held. Everything else
+# about the client is the same - the microphone and the speaker are the browser page.
+IS_TERMUX=0
+[[ -n ${TERMUX_VERSION:-} || ${PREFIX:-} == *com.termux* ]] && IS_TERMUX=1
+
 # keep what a previous install configured: re-running must never silently change the url,
 # the model or the session name (a second installation on the same machine shares nothing)
 ENV_FILE="$CONFIG/client.env"
@@ -34,6 +40,20 @@ say() { printf '\n== %s\n' "$*"; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
 say "prerequisites"
+if (( IS_TERMUX )); then
+    missing=()
+    for tool in python tmux curl; do
+        case $tool in
+            python) have python3 || missing+=("$tool") ;;
+            *) have "$tool" || missing+=("$tool") ;;
+        esac
+    done
+    if (( ${#missing[@]} )); then
+        echo "  installing in Termux: ${missing[*]}"
+        pkg install -y "${missing[@]}" || { echo "pkg install failed" >&2; exit 1; }
+    fi
+    echo "  termux: python3, tmux, curl present"
+fi
 have python3 || { echo "python3 missing" >&2; exit 1; }
 have tmux    || { echo "tmux missing" >&2; exit 1; }
 # pi often sits in ~/.local/bin, which a non-login ssh shell does not have in PATH
@@ -42,6 +62,16 @@ PI=${VOICE_PI:-$(command -v pi || echo "$HOME/.local/bin/pi")}
 have curl    || { echo "curl missing" >&2; exit 1; }
 python3 -c 'import urllib.request, json, ssl' \
     || { echo "python3 lacks urllib/ssl - install the full python3 package" >&2; exit 1; }
+
+# identity the server shows in the page's "answered by" list
+if [[ -z ${VOICE_CLIENT:-} ]]; then
+    if (( IS_TERMUX )); then
+        VOICE_CLIENT=$(getprop ro.product.model 2>/dev/null | tr 'A-Z' 'a-z' | tr -cd 'a-z0-9')
+        VOICE_CLIENT=${VOICE_CLIENT:-phone}
+    else
+        VOICE_CLIENT=$(hostname 2>/dev/null || echo client)
+    fi
+fi
 
 if [[ -z $API_URL ]]; then
     read -r -p "API base url: " API_URL
@@ -69,9 +99,12 @@ VOICE_MODEL=${VOICE_MODEL:-deepseek/deepseek-flash}
 # the tmux session name: two installations on one machine must not share it
 VOICE_SESSION=${VOICE_SESSION:-voice}
 VOICE_PI="$PI"
+# the name the server shows in the page's "answered by" list
+VOICE_CLIENT=${VOICE_CLIENT:-}
 ENV
 chmod 600 "$CONFIG/api-auth"
 echo "  credentials stored in $CONFIG/api-auth (0600)"
+echo "  this machine is called '$VOICE_CLIENT' in the page"
 
 say "commands: speechtext / speechreply"
 ln -sfn "$HERE/bin/speech" "$BINDIR/speechtext"
@@ -90,7 +123,20 @@ else
     echo "  the API did not answer with those credentials - fix that before worrying about the rest"
 fi
 
-if (( AUTOSTART )); then
+if (( AUTOSTART )) && (( IS_TERMUX )); then
+    say "autostart (Termux:Boot)"
+    DIR=$HOME/.termux/boot
+    mkdir -p "$DIR"
+    cat > "$DIR/voice.sh" <<BOOT
+#!/data/data/com.termux/files/usr/bin/bash
+# started by the Termux:Boot app after boot - install it from F-Droid once
+termux-wake-lock
+cd "$HERE" && ./tmux.sh start
+BOOT
+    chmod +x "$DIR/voice.sh"
+    echo "  $DIR/voice.sh"
+    echo "  needs the Termux:Boot app (F-Droid). Without it, start ./tmux.sh by hand."
+elif (( AUTOSTART )); then
     say "autostart"
     DIR=$HOME/.config/autostart
     mkdir -p "$DIR"

@@ -24,6 +24,8 @@ die() { printf 'update failed: %s\n' "$*" >&2; exit 1; }
 # shellcheck disable=SC1090
 . "$ENV_FILE"
 [[ -n ${VOICE_API_URL:-} ]] || die "$ENV_FILE has no VOICE_API_URL"
+# android calls itself localhost, so the configured name decides what to look for
+ME=${VOICE_CLIENT:-$(hostname 2>/dev/null || echo client)}
 
 credentials=$(cat "$AUTH_FILE")
 user=${credentials%%:*}
@@ -58,14 +60,14 @@ if (( START )); then
     for _ in $(seq 1 30); do   # the bridge needs a moment before the API sees it
         name=$(curl -fsS -m 4 -u "$credentials" "$VOICE_API_URL/clients" 2>/dev/null \
                | python3 -c 'import json,sys; print(" ".join(c["name"] for c in json.load(sys.stdin)["clients"]))' 2>/dev/null)
-        [[ $name == *"$(hostname)"* ]] && break
+        [[ $name == *"$ME"* ]] && break
         sleep 1
     done
     say "check"
     curl -fsS -m 5 -u "$credentials" "$VOICE_API_URL/health" >/dev/null \
         && echo "  api: ok" || die "api unreachable or unauthorized ($VOICE_API_URL)"
     printf '  attached machines: %s\n' "${name:-none}"
-    [[ $name == *"$(hostname)"* ]] && echo "  this machine is attached" \
+    [[ $name == *"$ME"* ]] && echo "  this machine is attached as $ME" \
         || echo "  NOTE: this machine is not in the client list yet; look at pane 1: tmux attach -t voice"
 fi
 
