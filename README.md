@@ -94,6 +94,8 @@ self-signed certificate (never for a public host: the password travels in those 
 - `docs/GOALS.md` — use cases, what this side must and must not do, what "working" means.
 - `docs/AGENT-BRIDGE.md` — the three processes, the sentence-to-answer protocol, two
   machines on one server, and a troubleshooting table.
+- `docs/TERMUX.md` — the same client on an Android phone: packages, wake-lock, boot hook,
+  picking the phone in the page, and why it needs no microphone.
 - The project-wide goals and the scheduling contract live in the server repo:
   `pispeech-server/docs/GOALS.md` and `docs/ARCHITECTURE.md`.
 
@@ -129,10 +131,28 @@ Autostart on the login machine: `./install.sh ... --autostart` writes
 `~/.config/autostart/voice-agent.desktop` for you (`Exec=tmux.sh start`); everything then
 lives in the `voice` tmux session.
 
-## An agent for the phone (on the server itself)
+## An Android phone (Termux)
 
-A phone has no agent of its own, so one runs on the server: the same repo, installed there,
-talking to `serve.py` directly (no apache, no password on localhost):
+pi runs on the phone as well (Pixel 8, GrapheneOS, Termux), so the phone can be its own
+agent, with its own files — `./install.sh` handles Termux: it installs `python tmux curl`
+through `pkg`, names the machine after the device model (`pixel8`, because `hostname` is
+`localhost`), takes a wake-lock so Doze does not freeze it, and `--autostart` writes a
+`~/.termux/boot/voice.sh` hook for the Termux:Boot app. Full details, including why no
+microphone is needed there: `docs/TERMUX.md`.
+
+```sh
+tar czf - --exclude sessions -C pispeech-client . | ssh DNPixel8 'mkdir -p ~/ai/pispeech-client && tar xzf - -C ~/ai/pispeech-client'
+ssh DNPixel8 'cd ~/ai/pispeech-client && ./install.sh --api https://www.deliktas.de/voice \
+    --user voice --password "…" && ./tmux.sh start'
+```
+
+Pick `pixel8` in the page once (`?target=pixel8` also works): through the router every
+device on the home network looks like one address, so the phone cannot be matched by address.
+
+## An agent for the phone on the server (alternative)
+
+If the phone has no pi of its own, one can run on the server instead: the same repo,
+installed there, talking to `serve.py` directly (no apache, no password on localhost):
 
 ```sh
 rsync -a --exclude sessions pispeech-client/ server:ai/pispeech-client/
