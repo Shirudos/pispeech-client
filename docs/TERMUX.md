@@ -15,7 +15,7 @@ another machine. The package list used to get the host reachable:
 
 ```sh
 pkg update && pkg upgrade
-pkg install openssh          # sshd -d -p 8022, then ssh from the other machine
+pkg install openssh          # then run `sshd` once: it listens on 8022
 pkg install python tmux curl git rsync fish fastfetch nmap ripgrep fd
 ```
 
