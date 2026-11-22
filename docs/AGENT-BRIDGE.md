@@ -33,13 +33,30 @@ restart never replays old answers.
 - **Never twice.** Every request has an id; the extension delivers each id once and answers
   `{"ack": id}`. The server never hands out an acknowledged request again.
 - **Nothing is dropped.** A `POST /reply` that fails keeps its offset and is retried with
-  backoff (0.3 s → 30 s) instead of being skipped.
+  backoff (0.3 s doubling to 5 s) instead of being skipped. Five seconds is deliberate: after
+  a server restart the loop has to be back almost at once, not half a minute later.
 - **`{"abort": true}` is Ctrl+C and is never answered.** The page sends it for "stop" and the
   ⏹ button; the extension calls `ctx.abort()`, the run settles as aborted, and the machine is
   free for the next sentence. Talking over an answer is *not* an abort: it silences the page
   and steers the agent, so work in progress survives.
 - **"weiter" / "continue" arrives as the word `continue`.** That is the only way to resume
   after an abort: the run is gone, so the agent has to be asked to carry on.
+
+## Records the bridge posts
+
+`agent-out.log` is a line-per-record file and `agent-pull.py` forwards each record to
+`POST /reply` with `X-Bridge: 2`. Five kinds, all optional from the agent's point of view:
+
+| record | when | what the page does |
+|---|---|---|
+| `{"ack": id}` | the request reached pi | stops showing it as "not confirmed" |
+| `{"text": "…"}` | one finished sentence while the answer is still being written | speaks it (queued, never cut off) |
+| `{"screen": "…"}` | one fenced code block | shows it, never reads it |
+| `{"activity": "bash"}` | a tool started | a small progress line, not spoken |
+| `{"final": true, "aborted": …}` | pi's run settled (`agent_settled`) | ends the lease; the machine takes the next sentence |
+
+A fence is never cut mid-block: the extension holds the sentence until the block closes, so a
+code listing is either shown whole or not at all.
 
 ## Which page talks to which machine
 
