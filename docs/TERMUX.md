@@ -101,7 +101,8 @@ take sentences you meant for another machine.
 
 Through the router's hairpin NAT every device on the home network reaches apache as the same
 address (`192.168.101.1`), and on mobile data the phone's address is not on the LAN at all.
-The address match therefore cannot tell the phone from the desktop, so pick it once:
+The address match therefore cannot tell the phone from the desktop (the server sees
+`agent ? pick one (adelpc, pixel8)` on the page instead of guessing), so pick it once:
 
 - in the page's **answered by** selector: `pixel8`, kept in `localStorage`, or
 - bookmark `https://www.deliktas.de/voice/?target=pixel8`.
