@@ -99,6 +99,31 @@ self-signed certificate (never for a public host: the password travels in those 
 - The project-wide goals and the scheduling contract live in the server repo:
   `pispeech-server/docs/GOALS.md` and `docs/ARCHITECTURE.md`.
 
+## Configuration
+
+Everything lives in `~/.config/voice/`; `install.sh` writes it once and `update.sh` keeps it.
+
+| where | key | meaning |
+|---|---|---|
+| `client.env` | `VOICE_API_URL` | the server, e.g. `https://www.deliktas.de/voice` |
+| | `VOICE_CLIENT` | the name the page shows (`pixel8`, `adelpc`); default: hostname, or the device model on Android |
+| | `VOICE_MODEL` | model for the voice agent (`deepseek/deepseek-flash`); the router default aborts mid-request |
+| | `VOICE_SESSION` | tmux session name, so two installations on one host do not collide |
+| | `VOICE_PI` | absolute path to `pi` (ssh and autostart shells often lack `~/.local/bin`) |
+| `api-auth` | `user:password` | Basic auth for the server, mode 0600 |
+| state | `~/.local/state/voice/` | `input.txt`, `reply.txt`, `history.jsonl`, `agent-in.log`, `agent-out.log` |
+
+Environment overrides are read at start, so `VOICE_CLIENT=pixel8 ./tmux.sh` works without
+editing the file. `VOICE_INSECURE_TLS=1` accepts a self-signed certificate (a LAN server
+without a real certificate; not needed behind apache).
+
+| command | flags |
+|---|---|
+| `./install.sh` | `--api`, `--user`, `--password`, `--autostart`, `--help` |
+| `./update.sh` | `--no-start` (stop and reinstall only) |
+| `./tmux.sh` | no argument = start/attach, `start`, `stop`, `status` |
+| `speechtext` / `speechreply` | `-w` wait for the next, `-f` follow, `-c` copy to clipboard |
+
 ## The agent's instructions
 
 `skills/voice-understanding/SKILL.md` is the voice session's system prompt: how to answer
