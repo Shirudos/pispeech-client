@@ -118,7 +118,9 @@ def pull():
         except Exception as error:  # noqa: BLE001 - the API host may be down
             log(f"pending failed ({error}), retrying in {backoff:.0f}s")
             time.sleep(backoff)
-            backoff = min(backoff * 2, 30)
+            # 5 s, not 30: after a server restart the voice loop must be back almost at
+            # once, otherwise you talk into a page that answers nothing for half a minute
+            backoff = min(backoff * 2, 5)
             continue
         for item in items:
             with open(IN_LOG, "a") as handle:
@@ -163,7 +165,9 @@ def push():
         except Exception as error:  # noqa: BLE001
             log(f"reply failed ({error}), retrying in {backoff:.0f}s")
             time.sleep(backoff)
-            backoff = min(backoff * 2, 30)
+            # 5 s, not 30: after a server restart the voice loop must be back almost at
+            # once, otherwise you talk into a page that answers nothing for half a minute
+            backoff = min(backoff * 2, 5)
 
 
 def main():
