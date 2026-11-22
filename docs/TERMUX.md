@@ -51,7 +51,13 @@ ssh DNPixel8 'cd ~/ai/pispeech-client && ./install.sh \
 ```
 
 With `rsync` installed on the phone the first step is just
-`rsync -a --exclude sessions pispeech-client/ DNPixel8:ai/pispeech-client/`.
+
+```sh
+rsync -a --exclude sessions pispeech-client/ DNPixel8:ai/pispeech-client/
+```
+
+and with `git` installed `git log` on the phone shows the same history as the machine the
+copy came from, so a change can be traced back there.
 
 ## What the installer does differently on Termux
 
