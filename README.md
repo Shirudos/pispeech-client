@@ -96,8 +96,8 @@ self-signed certificate (never for a public host: the password travels in those 
   machines on one server, and a troubleshooting table.
 - `docs/TERMUX.md` — the same client on an Android phone: packages, wake-lock, boot hook,
   picking the phone in the page, and why it needs no microphone.
-- `docs/WINDOWS.md` — the same client on Windows in Git Bash: no WSL, the two commands that
-  replace `tmux.sh` (the Windows tmux build cannot spawn panes), and what was verified.
+- `docs/WINDOWS.md` — the same client on Windows in Git Bash: no WSL, the win32 tmux quirk
+  `tmux.sh` works around, and what was verified.
 - The project-wide goals and the scheduling contract live in the server repo:
   `pispeech-server/docs/GOALS.md` and `docs/ARCHITECTURE.md`.
 

@@ -63,18 +63,34 @@ fi
 # Android: without a wake-lock Doze freezes the app and the session stops answering
 (( IS_TERMUX )) && command -v termux-wake-lock >/dev/null && termux-wake-lock
 
-tmux new-session -d -s "$SESSION" -c "$D" -n voice \
-    "env VOICE_PROMPT='$D/skills/voice-understanding/SKILL.md' '$PI' \
+PI_CMD="env VOICE_PROMPT='$D/skills/voice-understanding/SKILL.md' '$PI' \
         --session-id voice --session-dir '$D/sessions' --model '$MODEL' --thinking off \
         --no-extensions --no-skills --no-prompt-templates \
         -e '$D/pi-extension/voice-bridge.ts' \
         --append-system-prompt 'This machine: $CLIENT. Your working directory is on it.'"
-tmux set-option -t "$SESSION" remain-on-exit on
+BRIDGE_CMD="VOICE_API_URL='$API_URL' VOICE_CLIENT='$CLIENT' python3 -u '$D/agent-pull.py'"
+STATUS_CMD="bash '$D/remote-pane.sh' '$API_URL' '$API_URL/'"
 
-tmux split-window -h -t "$SESSION:0" -c "$D" \
-    "VOICE_API_URL='$API_URL' VOICE_CLIENT='$CLIENT' python3 -u '$D/agent-pull.py'"
-tmux split-window -v -t "$SESSION:0.1" -c "$D" \
-    "bash '$D/remote-pane.sh' '$API_URL' '$API_URL/'"
+if tmux new-session -d -s "$SESSION" -c "$D" -n voice "$PI_CMD" 2>/dev/null; then
+    tmux set-option -t "$SESSION" remain-on-exit on
+    tmux split-window -h -t "$SESSION:0" -c "$D" "$BRIDGE_CMD"
+    tmux split-window -v -t "$SESSION:0.1" -c "$D" "$STATUS_CMD"
+else
+    # Windows: the unofficial win32 tmux cannot spawn a command line or a cwd - every
+    # new-session/split-window with -c or an argument fails with "spawn failed", while the
+    # script went on to print "started". Bare panes inherit this directory, so the same
+    # commands are typed into them instead.
+    tmux new-session -d -s "$SESSION" \
+        || { echo "tmux could not start the session" >&2; exit 1; }
+    echo "tmux cannot spawn commands here - typing them into bare panes"
+    tmux set-option -t "$SESSION" remain-on-exit on
+    tmux rename-window -t "$SESSION:0" voice
+    tmux send-keys -t "$SESSION:0.0" -l "$PI_CMD" && tmux send-keys -t "$SESSION:0.0" Enter
+    tmux split-window -h -t "$SESSION:0" && \
+        { tmux send-keys -t "$SESSION:0.1" -l "$BRIDGE_CMD"; tmux send-keys -t "$SESSION:0.1" Enter; }
+    tmux split-window -v -t "$SESSION:0.1" && \
+        { tmux send-keys -t "$SESSION:0.2" -l "$STATUS_CMD"; tmux send-keys -t "$SESSION:0.2" Enter; }
+fi
 tmux select-pane -t "$SESSION:0.0"
 [[ "${1:-}" == start ]] && { echo "started (tmux attach -t $SESSION)"; exit 0; }
 exec tmux attach -t "$SESSION"

@@ -2,7 +2,8 @@
 
 Installed and verified on Windows 10 19045 with Git Bash — no WSL, no admin rights, no
 MSYS package manager. Everything the client needs already exists on a Windows box that has
-Git for Windows, Python and pi; the one thing that does *not* work is the `tmux` layout.
+Git for Windows, Python and pi; the only Windows-specific surprise is the `tmux` build, which
+cannot spawn a command line — `tmux.sh` types the commands into bare panes instead.
 
 ## What has to be there
 
@@ -18,8 +19,8 @@ Nothing is installed by hand: if `python3 --version`, `node --version`, `pi --ve
 `curl --version` answer inside Git Bash, the prerequisites are met. `install.sh` also checks
 `python3 -c 'import urllib.request, json, ssl'`, which the Windows Python satisfies.
 
-`tmux` is *not* required to install; only `tmux.sh` uses it, and that is the part that does
-not work here (see below).
+`tmux` is *not* required to install; only `tmux.sh` uses it, and the fallback described under
+*Starting it* covers the win32 build's inability to spawn panes.
 
 ## Install
 
@@ -60,47 +61,33 @@ export PATH="$HOME/.local/bin:$PATH"
 Git Bash creates `~/.bash_profile` on first login that sources `~/.bashrc`, so this is enough
 for every new window.
 
-## Starting it without tmux
+## Starting it: `tmux.sh`
 
-`tmux.sh` assumes a POSIX tmux. With the unofficial Windows tmux build
-(`tmux 3.6a-win32`, `C:\Users\<user>\tools\tmux\tmux.exe`) every window creation fails:
+`tmux.sh` works, with one Windows-only detour. The unofficial win32 tmux build
+(`tmux 3.6a-win32`, `C:\Users\<user>\tools\tmux\tmux.exe`) cannot spawn a command line and
+cannot be given a working directory — every `new-session`/`split-window` with `-c` or an
+argument fails with `create window failed: spawn failed`. A bare `new-session` *does* work and
+inherits the directory `tmux.sh` already sits in, so `tmux.sh` falls back to starting three
+bare panes and typing the same three commands into them:
 
 ```
 $ ./tmux.sh start
-create window failed: spawn failed
-no such window: voice
-...
-started (tmux attach -t voice)      # a lie: nothing is running
+tmux cannot spawn commands here - typing them into bare panes
+started (tmux attach -t voice)
 ```
 
-So on Windows the two halves of the session are started by hand, in two Git Bash windows —
-the same two commands `tmux.sh` puts in its panes.
+The session is then the normal one — pane 0 the pi agent, pane 1 `agent-pull.py`, pane 2 the
+API status — and `./tmux.sh status` / `stop` work as on Linux. The fallback only runs when the
+normal path fails, so nothing changes for Linux, Termux or WSL.
 
-Window 1, the agent:
+Two things worth knowing:
 
-```sh
-cd ~/Downloads/pispeech-client
-export VOICE_PROMPT="$PWD/skills/voice-understanding/SKILL.md"
-pi --session-id voice --session-dir "$PWD/sessions" \
-   --model deepseek/deepseek-flash --thinking off \
-   --no-extensions --no-skills --no-prompt-templates \
-   -e "$PWD/pi-extension/voice-bridge.ts" \
-   --append-system-prompt "This machine: DESKTOP-IDML5U3. Your working directory is on it."
-```
+- **pi first, bridge second** is already the order the fallback types them in, because the
+  bridge takes no work until the extension has written a heartbeat.
+- `/c/...` paths are fine as `-e` arguments: MSYS2 converts them to `C:\...` for the native
+  `node` pi launches (verified: a wrong path fails with the converted name).
 
-Window 2, the bridge:
-
-```sh
-cd ~/Downloads/pispeech-client
-VOICE_API_URL=https://www.deliktas.de/voice VOICE_CLIENT=DESKTOP-IDML5U3 \
-    python3 -u agent-pull.py
-```
-
-Order matters only in one direction: the bridge takes no work until the extension has
-written a heartbeat, so start pi first. `/c/...` paths are fine as `-e` arguments — MSYS2
-converts them to `C:\...` for the native `node` that pi launches (verified: a wrong path
-fails loudly with the converted name). Stopping is Ctrl+C in the bridge window and `/exit`
-in the pi window; there is no `tmux.sh stop`.
+Stopping is `./tmux.sh stop`, as on Linux.
 
 `speechtext`, `speechreply`, `tail -f ~/.local/state/voice/history.jsonl` behave as on Linux.
 
@@ -114,18 +101,19 @@ in the pi window; there is no `tmux.sh stop`.
 | `pi -e pi-extension/voice-bridge.ts -p …` | extension loads, writes `bridge.alive` and `agent-out.log` |
 | `python3 -u agent-pull.py` | starts, reports `pi is not running (no heartbeat …) - taking no work` until pi is up |
 | `curl https://www.deliktas.de/voice/health` without credentials | `401` — the client had no password to install, so `api-auth` holds `voice:` and the health check fails until it is replaced |
-| `./tmux.sh start` | fails, see above |
+| `./tmux.sh start` | prints the fallback line, starts `voice` with all three panes alive (pi TUI, `pending failed (401) … retrying`, the status pane) |
+| `./tmux.sh status` / `stop` | work; pane names show `shell` because the MSYS `pgrep` does not see the native children |
 
 Not verified: a spoken sentence end to end, because that needs the real `user:password`
 (and a page open on the server). Everything up to the lease is working; the 401 is the only
 gap.
 
-## WSL, if the tmux layout is wanted
+## WSL, if a real Linux box is wanted
 
-Windows Subsystem for Linux gives back the whole Linux path, `tmux.sh` included, with one
-extra step: the repo has to live on the Linux side (`~/ai/pispeech-client`, not `/mnt/c/...`,
-because `/mnt/c` has no POSIX permissions and horribly slow metadata), and both `python3`,
-`tmux`, `node` (for pi) and `pi` have to be installed inside the distribution:
+Windows Subsystem for Linux gives back the whole Linux path — a real tmux, real symlinks, real
+`0600` — with one extra step: the repo has to live on the Linux side (`~/ai/pispeech-client`,
+not `/mnt/c/...`, because `/mnt/c` has no POSIX permissions and horribly slow metadata), and
+`python3`, `tmux`, `node` (for pi) and `pi` have to be installed inside the distribution:
 
 ```sh
 wsl --install -d Ubuntu                  # admin rights, reboot
