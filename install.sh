@@ -107,14 +107,42 @@ echo "  credentials stored in $CONFIG/api-auth (0600)"
 echo "  this machine is called '$VOICE_CLIENT' in the page"
 
 say "commands: speechtext / speechreply"
-ln -sfn "$HERE/bin/speech" "$BINDIR/speechtext"
-ln -sfn "$HERE/bin/speech" "$BINDIR/speechreply"
-case ":$PATH:" in
-    *":$BINDIR:"*) ;;
-    *) echo "  note: $BINDIR is not on PATH, so speechtext will not be found there."
-       echo "        add to ~/.bashrc or ~/.config/fish/config.fish:"
-       echo "          export PATH=\"$BINDIR:\$PATH\"" ;;
+for name in speechtext speechreply; do
+    # Git Bash has no real symlinks: ln silently writes a copy there, and some setups refuse
+    # outright. Whatever happens, the command has to exist and be executable.
+    ln -sfn "$HERE/bin/speech" "$BINDIR/$name" 2>/dev/null
+    [[ -x $BINDIR/$name ]] || cp "$HERE/bin/speech" "$BINDIR/$name" || { echo "  cannot write $BINDIR/$name" >&2; exit 1; }
+    chmod +x "$BINDIR/$name"
+done
+# PATH: a note nobody reads is why the commands "go missing". Write it once, idempotently.
+# The rc file follows the login shell (the author's is fish); VOICE_RC overrides it.
+RC=${VOICE_RC:-}
+if [[ -z $RC ]]; then
+    case ${SHELL##*/} in
+        fish) RC=$HOME/.config/fish/config.fish ;;
+        zsh)  RC=$HOME/.zshrc ;;
+        *)    RC=$HOME/.bashrc ;;
+    esac
+fi
+# fish's rc is only there once fish has run once
+[[ $RC == */config.fish ]] && mkdir -p "${RC%/*}"
+case "$RC" in
+    */config.fish) EXPORT="set -gx PATH \"$BINDIR\" \$PATH" ;;
+    *)            EXPORT="export PATH=\"$BINDIR:\$PATH\"" ;;
 esac
+case ":$PATH:" in
+    *":$BINDIR:"*) echo "  $BINDIR is already on PATH" ;;
+    *) if grep -qsF 'pispeech-client: speechtext' "$RC" 2>/dev/null; then
+           echo "  $RC already adds $BINDIR - open a new shell"
+       else
+           printf '\n# pispeech-client: speechtext/speechreply\n%s\n' "$EXPORT" >> "$RC" \
+               && echo "  added $BINDIR to PATH in $RC (new shells see it)" \
+               || { echo "  add to your shell rc manually:"; echo "    $EXPORT"; }
+       fi ;;
+esac
+command -v speechtext >/dev/null 2>&1 \
+    && echo "  speechtext/speechreply ready" \
+    || echo "  created in $BINDIR - not on this shell's PATH yet (open a new shell)"
 
 say "checking the server"
 if curl -fsS -m 6 -u "$(cat "$CONFIG/api-auth")" "$API_URL/health"; then

@@ -43,23 +43,38 @@ type them when they are known. What it writes, in Windows terms:
 | `C:\Users\<user>\.local\state\voice\` | `agent-in.log`, `agent-out.log`, `history.jsonl`, `bridge.alive`, … |
 
 Git Bash has no real symlinks by default, so `ln -sfn` in `install.sh` lands as two small
-copies instead of two links. That is harmless: `bin/speech` is self-contained and reads
-`$0`'s last path component to decide between transcript and answer. Re-running `update.sh`
-refreshes both copies.
+copies instead of two links. `install.sh` therefore checks that each command exists and is
+executable and falls back to `cp` — the two copies stay in step because `update.sh` re-runs
+the installer. `bin/speech` is self-contained and reads `$0`'s last path component to decide
+between transcript and answer.
 
 The client is called `DESKTOP-IDML5U3` in the page — the Windows hostname, as the installer
 says. `VOICE_CLIENT=adelpc ./tmux.sh` (or an edit of `client.env`) renames it.
 
-## `~/.local/bin` on PATH
+## `speechtext` / `speechreply` on PATH
 
-`install.sh` prints the note; the one line that fixes it, appended to `C:\Users\<user>\.bashrc`:
+Two places have to know the directory, and the installer now writes both instead of printing a
+note:
 
-```sh
-export PATH="$HOME/.local/bin:$PATH"
+- **New shells.** If `~/.local/bin` is not on `PATH`, `install.sh` appends one block to
+  `~/.bashrc`, guarded by a `pispeech-client:` marker so re-running never adds it twice. Git
+  Bash's `~/.bash_profile` sources `~/.bashrc`, so every new window has the commands.
+- **The tmux panes.** Panes inherit the tmux *server's* environment, not the environment of the
+  script that created them — a session started by autostart or from a non-login shell used to
+  have no `speechtext` at all. `tmux.sh` now runs `tmux set-environment PATH "$HOME/.local/bin:$PATH"`
+  before it splits, so `command -v speechtext` answers inside every pane. (On win32 the value
+  is stored in Windows form, `C:\Users\<user>\.local\bin;…`; MSYS bash converts it back at
+  startup — verified.)
+
+Both commands are POSIX shell scripts, so they exist **in Git Bash only** — `cmd.exe` and
+PowerShell cannot run them. From PowerShell the equivalent is:
+
+```powershell
+bash -lc 'speechtext'      # requires Git's bin directory on the Windows PATH
 ```
 
-Git Bash creates `~/.bash_profile` on first login that sources `~/.bashrc`, so this is enough
-for every new window.
+Verified with `command -v speechtext; speechreply` in a fresh pane of the running `voice`
+session: `/c/Users/<user>/.local/bin/speechtext`, then the last answer.
 
 ## Starting it: `tmux.sh`
 
@@ -91,22 +106,24 @@ Stopping is `./tmux.sh stop`, as on Linux.
 
 `speechtext`, `speechreply`, `tail -f ~/.local/state/voice/history.jsonl` behave as on Linux.
 
-## What was verified, and what was not
+## What was verified
 
 | checked | result |
 |---|---|
-| `./install.sh` | config, both commands, state dir written |
+| `./install.sh` | config, both commands, state dir written; second run adds nothing twice |
 | `speechtext` / `speechreply` | answer `nothing (input) yet` / `nothing (reply) yet` |
+| `command -v speechtext` in a fresh pane of the running session | `/c/Users/<user>/.local/bin/speechtext`, then the last answer — the pane PATH fix |
 | `node test_bridge.mjs` | `test_bridge ok` — the extension's protocol on Windows Node 26 |
 | `pi -e pi-extension/voice-bridge.ts -p …` | extension loads, writes `bridge.alive` and `agent-out.log` |
 | `python3 -u agent-pull.py` | starts, reports `pi is not running (no heartbeat …) - taking no work` until pi is up |
-| `curl https://www.deliktas.de/voice/health` without credentials | `401` — the client had no password to install, so `api-auth` holds `voice:` and the health check fails until it is replaced |
-| `./tmux.sh start` | prints the fallback line, starts `voice` with all three panes alive (pi TUI, `pending failed (401) … retrying`, the status pane) |
+| `curl …/health` with `voice:<password>` | `200`, and `/clients` lists `DESKTOP-IDML5U3` with `idle 0.4` — the bridge is polling |
+| `./tmux.sh start` | prints the fallback line, starts `voice` with all three panes alive |
 | `./tmux.sh status` / `stop` | work; pane names show `shell` because the MSYS `pgrep` does not see the native children |
+| a spoken sentence, end to end | `history.jsonl` records input and reply pairs, and pi acted on the Windows files (it wrote a test document, then moved it to `Downloads` when asked) |
 
-Not verified: a spoken sentence end to end, because that needs the real `user:password`
-(and a page open on the server). Everything up to the lease is working; the 401 is the only
-gap.
+One Windows target-selection quirk: this client reaches the server from its public address
+(`95.90.191.119`), unlike `adelpc`/`pixel8` on `192.168.101.1`, so the page does not match it
+by address. Pick it once in *answered by*, or open `/voice/?target=DESKTOP-IDML5U3`.
 
 ## WSL, if a real Linux box is wanted
 

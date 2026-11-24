@@ -151,8 +151,10 @@ and each answer is spoken by the page that asked. `GET /clients` on the server s
 attached, and `VOICE_CLIENT=name` overrides the name (default: the hostname).
 
 One thing to know on `ssh`: `~/.local/bin` is often missing from a non-login PATH, so `pi`
-and `speechtext` look absent. `tmux.sh` adds it for the panes; for your own shell add
-`export PATH="$HOME/.local/bin:$PATH"`.
+and `speechtext` look absent. `tmux.sh` puts it on the panes' PATH (`tmux set-environment`),
+and `install.sh` writes the export into your shell's rc file (`~/.bashrc`, `~/.zshrc`, or
+`~/.config/fish/config.fish` — it looks at `$SHELL`, `VOICE_RC` overrides it) instead of only
+printing the line.
 
 Autostart on the login machine: `./install.sh ... --autostart` writes
 `~/.config/autostart/voice-agent.desktop` for you (`Exec=tmux.sh start`); everything then

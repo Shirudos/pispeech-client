@@ -70,20 +70,28 @@ PI_CMD="env VOICE_PROMPT='$D/skills/voice-understanding/SKILL.md' '$PI' \
         --append-system-prompt 'This machine: $CLIENT. Your working directory is on it.'"
 BRIDGE_CMD="VOICE_API_URL='$API_URL' VOICE_CLIENT='$CLIENT' python3 -u '$D/agent-pull.py'"
 STATUS_CMD="bash '$D/remote-pane.sh' '$API_URL' '$API_URL/'"
+# the panes inherit the tmux *server's* environment, not this script's: without this a pane
+# started by autostart or by a non-login shell has no speechtext/speechreply on PATH
+PANE_PATH="$HOME/.local/bin:$PATH"
 
-if tmux new-session -d -s "$SESSION" -c "$D" -n voice "$PI_CMD" 2>/dev/null; then
-    tmux set-option -t "$SESSION" remain-on-exit on
-    tmux split-window -h -t "$SESSION:0" -c "$D" "$BRIDGE_CMD"
-    tmux split-window -v -t "$SESSION:0.1" -c "$D" "$STATUS_CMD"
-else
-    # Windows: the unofficial win32 tmux cannot spawn a command line or a cwd - every
-    # new-session/split-window with -c or an argument fails with "spawn failed", while the
-    # script went on to print "started". Bare panes inherit this directory, so the same
-    # commands are typed into them instead.
+CREATED=0
+tmux new-session -d -s "$SESSION" -c "$D" -n voice "$PI_CMD" 2>/dev/null && CREATED=1
+# Windows: the unofficial win32 tmux cannot spawn a command line or a cwd - every
+# new-session/split-window with -c or an argument fails with "spawn failed", while the
+# script went on to print "started". Bare panes inherit this directory, so the same
+# commands are typed into them instead.
+if (( ! CREATED )); then
     tmux new-session -d -s "$SESSION" \
         || { echo "tmux could not start the session" >&2; exit 1; }
     echo "tmux cannot spawn commands here - typing them into bare panes"
-    tmux set-option -t "$SESSION" remain-on-exit on
+fi
+tmux set-environment -t "$SESSION" PATH "$PANE_PATH"
+tmux set-option -t "$SESSION" remain-on-exit on
+
+if (( CREATED )); then
+    tmux split-window -h -t "$SESSION:0" -c "$D" "$BRIDGE_CMD"
+    tmux split-window -v -t "$SESSION:0.1" -c "$D" "$STATUS_CMD"
+else
     tmux rename-window -t "$SESSION:0" voice
     tmux send-keys -t "$SESSION:0.0" -l "$PI_CMD" && tmux send-keys -t "$SESSION:0.0" Enter
     tmux split-window -h -t "$SESSION:0" && \
