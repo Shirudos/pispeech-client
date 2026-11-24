@@ -127,6 +127,19 @@ One Windows target-selection quirk: this client reaches the server from its publ
 (`95.90.191.119`), unlike `adelpc`/`pixel8` on `192.168.101.1`, so the page does not match it
 by address. Pick it once in *answered by*, or open `/voice/?target=DESKTOP-IDML5U3`.
 
+## When a pane says `401`
+
+Two traps, both seen here:
+
+- **The bridge prints only failures**, so once it works the last lines of pane 1 stay
+  `pending failed (HTTP Error 401: Unauthorized), retrying in 5s` forever and look live.
+  The truth is `./tmux.sh status` (`api: up …`) or `GET /clients`, which lists this machine with
+  a small `idle` — a bridge that is refused never polls, so it never shows up there. `tmux
+  clear-history -t voice:0.1` wipes the misleading text.
+- **HTTP Basic auth is case-sensitive on the user name.** `voice` + password answers `200`,
+  `Voice` + the same password answers `401`. The browser asks for the pair again after a
+  restart, so typing the capitalised name there fails even though the client works.
+
 ## WSL, if a real Linux box is wanted
 
 Windows Subsystem for Linux gives back the whole Linux path — a real tmux, real symlinks, real
