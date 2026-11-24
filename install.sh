@@ -79,6 +79,17 @@ if [[ -z $API_URL ]]; then
 fi
 API_URL=${API_URL%/}
 
+# --user/--password missing: reuse what a previous install stored before asking. A piped or
+# cron install has no terminal to answer on, and the empty answer used to overwrite working
+# credentials with ":" - which looks exactly like a wrong password on every later request.
+STORED_AUTH=""
+[[ -r $CONFIG/api-auth ]] && STORED_AUTH=$(cat "$CONFIG/api-auth")
+if [[ -z $USER_NAME && -z $PASSWORD && -n $STORED_AUTH ]]; then
+    USER_NAME=${STORED_AUTH%%:*}
+    PASSWORD=${STORED_AUTH#*:}
+    echo "  reusing the stored credentials for '$USER_NAME'"
+fi
+
 if [[ -z $USER_NAME ]]; then
     read -r -p "user name for the API: " USER_NAME
 fi

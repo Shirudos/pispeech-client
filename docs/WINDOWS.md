@@ -31,8 +31,10 @@ cd ~/Downloads/pispeech-client            # wherever the repo was copied
 printf 'voice\n\n' | ./install.sh --api https://www.deliktas.de/voice
 ```
 
-The two piped lines are the interactive answers (`user name`, `password`); drop the pipe and
-type them when they are known. What it writes, in Windows terms:
+The two piped lines are the interactive answers (`user name`, `password`). Re-running
+`install.sh` without them keeps the credentials already in `api-auth` — a piped or cron run
+has no terminal to answer on, and the empty answer used to overwrite them with `:`, which
+looks like a wrong password on every later request. What it writes, in Windows terms:
 
 | file | |
 |---|---|

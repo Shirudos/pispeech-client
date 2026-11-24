@@ -121,7 +121,7 @@ without a real certificate; not needed behind apache).
 
 | command | flags |
 |---|---|
-| `./install.sh` | `--api`, `--user`, `--password`, `--autostart`, `--help` |
+| `./install.sh` | `--api`, `--user`, `--password`, `--autostart`, `--help`; without `--user`/`--password` it keeps the stored ones (a piped or cron run cannot answer the prompt) |
 | `./update.sh` | `--no-start` (stop and reinstall only) |
 | `./tmux.sh` | no argument = start/attach, `start`, `stop`, `status` |
 | `speechtext` / `speechreply` | `-w` wait for the next, `-f` follow, `-c` copy to clipboard |
