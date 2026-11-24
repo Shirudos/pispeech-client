@@ -131,8 +131,11 @@ by address. Pick it once in *answered by*, or open `/voice/?target=DESKTOP-IDML5
 
 Two traps, both seen here:
 
-- **The bridge prints only failures**, so once it works the last lines of pane 1 stay
-  `pending failed (HTTP Error 401: Unauthorized), retrying in 5s` forever and look live.
+- **The bridge used to print only failures**, so once it worked the last lines of pane 1 stayed
+  `pending failed (HTTP Error 401: Unauthorized), retrying in 5s` forever and looked live. It
+  now says so both ways: the first `401` is followed by
+  `wrong user:password in ~/.config/voice/api-auth (the user name is case-sensitive)`, and a
+  recovered bridge prints `pending ok - authenticated, waiting for speech`.
   The truth is `./tmux.sh status` (`api: up …`) or `GET /clients`, which lists this machine with
   a small `idle` — a bridge that is refused never polls, so it never shows up there. `tmux
   clear-history -t voice:0.1` wipes the misleading text.

@@ -100,7 +100,7 @@ def agent_alive():
 
 def pull():
     """Long-poll for work, but only while pi is there to read it."""
-    backoff, said_waiting = 0.3, False
+    backoff, said_waiting, failing = 0.3, False, False
     while True:
         if not agent_alive():
             if not said_waiting:
@@ -117,11 +117,19 @@ def pull():
             backoff = 0.3
         except Exception as error:  # noqa: BLE001 - the API host may be down
             log(f"pending failed ({error}), retrying in {backoff:.0f}s")
+            # a 401 looks exactly like "nobody is talking" from the outside: say what it is
+            if not failing and "401" in str(error):
+                log(f"  wrong user:password in {AUTH_FILE} (the user name is case-sensitive)")
+            failing = True
             time.sleep(backoff)
             # 5 s, not 30: after a server restart the voice loop must be back almost at
             # once, otherwise you talk into a page that answers nothing for half a minute
             backoff = min(backoff * 2, 5)
             continue
+        if failing:
+            # the pane only ever showed failures, so a recovered bridge looked broken forever
+            log("pending ok - authenticated, waiting for speech")
+            failing = False
         for item in items:
             with open(IN_LOG, "a") as handle:
                 handle.write(json.dumps(item) + "\n")
